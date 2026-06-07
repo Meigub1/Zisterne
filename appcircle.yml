@@ -1,0 +1,9 @@
+version: 1.0
+build:
+  dependencies:
+    - java-17
+  steps:
+    - name: Android Build
+      command: gradle assembleDebug
+  artifacts:
+    - app/build/outputs/apk/debug/app-debug.apk
