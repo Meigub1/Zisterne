@@ -1,6 +1,9 @@
 package com.example.cisternenrechner
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -11,9 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -36,6 +43,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ZisternenRechner() {
     var sliderValue by remember { mutableFloatStateOf(1.5f) }
+    // Lädt den Context (wichtig für Datei-Speicherung und Benachrichtigungen)
+    val context = LocalContext.current
 
     val maxTiefe = 2.87f
     val grundflaechePi = 3141.59f
@@ -92,7 +101,7 @@ fun ZisternenRechner() {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text("Gemessener Abstand (Deckel bis Wasser):", fontSize = 14.sp, color = Color.Gray)
+                Text("Gemessener Abstand:", fontSize = 14.sp, color = Color.Gray)
                 
                 Text(
                     text = String.format(Locale.GERMANY, "%.2f m", sliderValue),
@@ -121,7 +130,7 @@ fun ZisternenRechner() {
                     Text("2,87 m (Leer)", fontSize = 12.sp, color = Color.Gray)
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Text("Aktuelles Volumen:", fontSize = 16.sp, color = Color.Gray)
                 
@@ -140,7 +149,80 @@ fun ZisternenRechner() {
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF5C6BC0)
                 )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // --- NEUE BUTTONS ZUM SPEICHERN ---
+                
+                Button(
+                    onClick = { saveToFile(context, sliderValue, liter, prozent) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0056B3)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Wert abspeichern", fontSize = 16.sp)
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedButton(
+                    onClick = { shareLog(context) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Logbuch ansehen / teilen", color = Color(0xFF0056B3))
+                }
             }
         }
+    }
+}
+
+// Funktion zum Schreiben in die Textdatei
+fun saveToFile(context: Context, abstand: Float, liter: Int, prozent: Float) {
+    try {
+        // Aktuelles Datum und Uhrzeit formatieren
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
+        val currentTime = dateFormat.format(Date())
+        
+        // Text-Zeile zusammenbauen
+        val abstandStr = String.format(Locale.GERMANY, "%.2f", abstand)
+        val prozentStr = String.format(Locale.GERMANY, "%.1f", prozent)
+        val logEntry = "$currentTime | Maß: ${abstandStr}m | $liter Liter | Füllstand: $prozentStr%\n"
+
+        // Datei im Hintergrund öffnen und Text anhängen
+        val file = File(context.filesDir, "Zisternen_Logbuch.txt")
+        file.appendText(logEntry)
+
+        // Kleine Bestätigung auf dem Bildschirm einblenden
+        Toast.makeText(context, "Gespeichert!", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Fehler beim Speichern", Toast.LENGTH_LONG).show()
+    }
+}
+
+// Funktion zum Auslesen und Teilen der Textdatei
+fun shareLog(context: Context) {
+    try {
+        val file = File(context.filesDir, "Zisternen_Logbuch.txt")
+        
+        // Prüfen, ob überhaupt schon etwas gespeichert wurde
+        if (!file.exists()) {
+            Toast.makeText(context, "Logbuch ist noch leer.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Inhalt komplett auslesen
+        val logInhalt = file.readText()
+        
+        // Das Standard-Android-Teilen-Menü aufrufen
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, "Mein Zisternen-Logbuch:\n\n$logInhalt")
+            type = "text/plain"
+        }
+        
+        val shareIntent = Intent.createChooser(sendIntent, "Logbuch senden oder ansehen...")
+        context.startActivity(shareIntent)
+        
+    } catch (e: Exception) {
+        Toast.makeText(context, "Fehler beim Lesen", Toast.LENGTH_LONG).show()
     }
 }
